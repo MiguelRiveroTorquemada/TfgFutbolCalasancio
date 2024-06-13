@@ -11,8 +11,8 @@
         <input type="text" id="apellidos" v-model="cliente.apellidos" class="input" required />
       </div>
       <div class="form-group">
-        <label for="domicilio" class="label">Domicilio:</label>
-        <input type="text" id="domicilio" v-model="cliente.domicilio" class="input" required />
+        <label for="direccion" class="label">Direccion:</label>
+        <input type="text" id="direccion" v-model="cliente.direccion" class="input" required />
       </div>
       <div class="form-group">
         <label for="email" class="label">Email:</label>
@@ -40,7 +40,7 @@ export default {
       cliente: {
         nombre: '',
         apellidos: '',
-        domicilio:'',
+        direccion:'',
         email: '',
         dni: '',
         password:''
@@ -50,24 +50,25 @@ export default {
   methods: {
     ...mapActions(['addClientes']),
     submitForm() {
-      this.$store.dispatch('addClientes', this.cliente)
-        .then(() => {
-          alert('Cliente añadido con éxito');
-          // Limpia el formulario
-          this.cliente.nombre = '';
-          this.cliente.apellidos = '';
-          this.cliente.domicilio = '';
-          this.cliente.email = '';
-          this.cliente.dni = '';
-          this.cliente.password = '';
-          
-          // Redirige o realiza cualquier otra acción necesaria
-        })
-        .catch(error => {
-          console.error('Error al añadir el cliente:', error);
-          alert('Error al añadir el cliente');
-        });
-    }
+    this.$store.dispatch('addClientes', this.cliente)
+      .then(() => {
+        alert('Cliente añadido con éxito');
+        // Limpia el formulario
+        this.cliente.nombre = '';
+        this.cliente.apellidos = '';
+        this.cliente.direccion = '';
+        this.cliente.email = '';
+        this.cliente.dni = '';
+        this.cliente.password = '';
+        
+        // Redirige o realiza cualquier otra acción necesaria
+      })
+      .catch(error => {
+        console.error('Error al añadir el cliente:', error);
+        alert('Error al añadir el cliente: ' + error.message); // Mostrar mensaje de error al usuario
+      });
+  }
+
   }
 };
 </script>
@@ -131,4 +132,5 @@ export default {
 .button:hover {
   background-color: #4682B4; /* Azul acero */
 }
+
 </style>

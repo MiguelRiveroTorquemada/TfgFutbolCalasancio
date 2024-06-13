@@ -38,9 +38,10 @@
             <v-text-field label="Password" v-model="password" type="password"></v-text-field>
           </v-card-text>
           <v-card-actions>
-            <v-btn @click="comprar" class="blue-gradient-btn">Completar pedido</v-btn>
-            <v-btn @click="volver" class="blue-gradient-btn">Seguir Comprando</v-btn>
-            <v-btn v-if="!email || !password" @click="mostrarFormularioCliente" class="blue-gradient-btn" dark>Tus detalles</v-btn>
+            <!-- Botones más pequeños y cuadrados -->
+            <v-btn @click="processPaymentCarrito" class="blue-gradient-btn small-square-btn">Completar pedido</v-btn>
+            <v-btn @click="volver" class="blue-gradient-btn small-square-btn">Seguir Comprando</v-btn>
+            <v-btn v-if="!email || !password" @click="mostrarFormularioCliente" class="blue-gradient-btn small-square-btn" dark>Tus detalles</v-btn>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -56,7 +57,6 @@
     </v-dialog>
   </v-container>
 </template>
-
 
 <script>
 import { mapState, mapActions } from "vuex";
@@ -83,22 +83,45 @@ export default {
     }
   },
   methods: {
-    ...mapActions(["addCarritos", "verificarCredenciales", "fetchClientes"]),
-    async comprar() {
-      const idsProductosEnCarrito = this.productosEnCarrito.map(producto => producto.id);
-      if (this.email && this.password) {
-        const credencialesValidas = await this.verificarCredenciales({ email: this.email, password: this.password });
-        if (credencialesValidas) {
-          await this.addCarritos({ productoIds: idsProductosEnCarrito, email: this.email, password: this.password });
-          // Actualizar la página
-          this.$router.go(0);
-        } else {
-          this.mostrarDialogoCliente = true;
-        }
-      } else {
-        this.mostrarDialogoCliente = true;
-      }
-    },
+    ...mapActions(["processPaymentCarrito", "fetchClientes","addClientes"]),
+    async processPaymentCarrito() {
+  const idsProductosEnCarrito = this.productosEnCarrito.map(producto => producto && producto.id);
+  try {
+    const clienteExiste = await this.$store.dispatch("verificarCredenciales", {
+      email: this.email,
+      password: this.password
+    });
+
+    if (!clienteExiste) {
+      // Si el cliente no existe, muestra el formulario para agregar un nuevo cliente
+      this.mostrarDialogoCliente = true;
+      return; // Detener el proceso de pago
+    }
+
+    // Continuar con el proceso de pago
+    await this.$store.dispatch("processPaymentCarrito", {
+      productoIds: idsProductosEnCarrito,
+      carnetSocioId: null,
+      email: this.email,
+      password: this.password
+    });
+    
+    // Actualizar la página
+    this.$router.go(0);
+  } catch (error) {
+    console.error('Error al procesar el pago:', error);
+
+    // Manejar el error y mostrar el diálogo del cliente si es necesario
+    this.mostrarDialogoCliente = true;
+  }
+},
+
+irAAgregarCliente() {
+  // Navegar a la página de agregar cliente
+  this.$router.push({ name: 'addClientes' });
+},
+
+
     mostrarFormularioCliente() {
       this.mostrarDialogoCliente = true;
     },
@@ -107,11 +130,13 @@ export default {
       this.mostrarDialogoCliente = false;
     },
     volver() {
-      this.$router.push({ name: 'ListProductos' });
-    },
-    irAAgregarCliente() {
-      this.$router.push({ name: 'AddClientes' });
-    },
+  // Verifica si la ruta actual no es "/ListProductos"
+  if (this.$route.path !== '/ListProductos') {
+    // Navega a "/ListProductos" solo si la ruta actual es diferente
+    this.$router.push({ name: 'ListProductos' });
+  }
+},
+
   },
   created() {
     this.fetchClientes();
@@ -121,43 +146,56 @@ export default {
 
 
 <style scoped>
+/* Estilo para hacer los botones más pequeños y cuadrados */
+.small-square-btn {
+  width: 150px; /* Ancho deseado para los botones */
+  height: 40px; /* Altura deseada para los botones */
+  border-radius: 0; /* Hacer los botones cuadrados */
+  padding: 5px 10px; /* Ajustar el relleno interno */
+  font-size: 14px; /* Tamaño del texto */
+  margin-right: 10px; /* Agregar margen entre los botones */
+}
+
+/* Estilos existentes */
+.container {
+  margin-top: 230px;
+}
+
 .container-frame {
   background-color: rgba(255, 255, 255, 0.5);
   border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1); /* Sombra difuminada */
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
   position: relative;
-  z-index: 2; /* Asegura que el formulario esté por encima del degradado */
+  z-index: 2;
 }
 
 .centered-card::before {
   content: '';
   position: absolute;
-  top: -20px; /* Ajusta el desplazamiento vertical */
-  left: -20px; /* Ajusta el desplazamiento horizontal */
-  right: -20px; /* Ajusta el desplazamiento horizontal */
-  bottom: -20px; /* Ajusta el desplazamiento vertical */
+  top: -20px;
+  left: -20px;
+  right: -20px;
+  bottom: -20px;
   border-radius: inherit;
-  box-shadow: 0 0 40px rgba(0, 0, 255, 0.5); /* Ajusta el difuminado */
+  box-shadow: 0 0 40px rgba(0, 0, 255, 0.5);
   z-index: -1;
 }
 
-/* Ajuste para el interior del recuadro */
 .centered-card > * {
-  background-color: white; /* Establece el fondo del contenido como blanco */
-}
-.centered-card .basket-title {
-  margin-bottom: 30px; /* Ajusta el margen superior */
+  background-color: white;
 }
 
+.centered-card .basket-title {
+  margin-bottom: 30px;
+}
 
 .line {
   border-top: 1px dashed rgba(0, 0, 0, 0.3);
-  margin: 20px auto; /* Ajusta el margen */
-  width: 50%; /* Ajusta el ancho de la línea */
+  margin: 20px auto;
+  width: 50%;
 }
 
-/* Estilos ya existentes */
 .mb-2 {
   margin-bottom: 16px;
 }
@@ -178,30 +216,26 @@ export default {
   color: white;
 }
 
-/* Ajuste de tamaño de columna */
 .v-col {
-  max-width: 400px; /* Aumenta el ancho máximo del formulario */
+  max-width: 400px;
 }
 
-/* Ajuste de margen */
 .my-2 {
   margin-top: 1rem;
   margin-bottom: 1rem;
 }
 
-/* Ajuste para tarjetas más grandes y rectangulares */
 .smaller-card {
-  width: 100%; /* Ajusta el ancho al 100% del contenedor */
-  max-width: 500px; /* Define un ancho máximo mayor */
-  margin-left: auto; /* Mueve la caja hacia la derecha */
-  border-radius: 12px; /* Hace los bordes más redondeados */
+  width: 100%;
+  max-width: 500px;
+  margin-left: auto;
+  border-radius: 12px;
 }
+
 .product-item-card {
-  padding: 16px; /* Ajusta el relleno interno */
-  margin-bottom: 16px; /* Ajusta el margen inferior */
+  padding: 16px;
+  margin-bottom: 16px;
   border-radius: 8px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
-
-
 </style>

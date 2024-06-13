@@ -15,16 +15,7 @@
         Login,
     },
   
-    /*     created() {
-          this.cargarDatos();
-      },
   
-      data() {
-          return {
-              Items: []
-          }
-      },
-       */
       
   };
   </script>

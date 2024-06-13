@@ -6,7 +6,7 @@
     <v-container fluid>
       <!-- Botón para agregar nuevos productos -->
       <v-row justify="center">
-        <v-btn @click="showAddProductDialog = true" class="add-product-btn" dark>
+        <v-btn v-if="$store.state.isAdmin" @click="showAddProductDialog = true" class="add-product-btn" dark>
           +
         </v-btn>
       </v-row>
@@ -17,25 +17,25 @@
             <div class="centered-card">
               <img :src="getImageUrl(producto.id)" alt="Imagen del producto" style="width: 400px;">
               <v-card-title>
-                <span v-if="!producto.editable" @click="enableEditing(producto)">{{ producto.nombreProducto }}</span>
+                <span v-if="!producto.editable || !$store.state.isAdmin" @click="enableEditing(producto)">{{ producto.nombreProducto }}</span>
                 <input v-else v-model="producto.nombreProducto">
               </v-card-title>
               <v-card-subtitle>
-                <span v-if="!producto.editable" @click="enableEditing(producto)">{{ producto.descripcion }}</span>
+                <span v-if="!producto.editable || !$store.state.isAdmin" @click="enableEditing(producto)">{{ producto.descripcion }}</span>
                 <input v-else v-model="producto.descripcion">
               </v-card-subtitle>
               <v-card-text>
-                <div v-if="!producto.editable" @click="enableEditing(producto)">Precio: €{{ producto.precio }}</div>
+                <div v-if="!producto.editable || !$store.state.isAdmin" @click="enableEditing(producto)">Precio: €{{ producto.precio }}</div>
                 <input v-else v-model.number="producto.precio" type="number" step="0.01">
               </v-card-text>
-              <v-btn @click="addCarritos(producto)" class="blue-gradient-btn" dark>
+              <v-btn @click="comprar(producto)" class="blue-gradient-btn" dark>
                 Agregar al carrito
               </v-btn>
               <!-- Botones para eliminar y actualizar producto -->
-              <v-btn @click="eliminarProducto(producto.id)" class="red-gradient-btn" dark>
+              <v-btn v-if="$store.state.isAdmin" @click="eliminarProducto(producto.id)" class="red-gradient-btn" dark>
                 Eliminar
               </v-btn>
-              <v-btn @click="actualizarProducto(producto)" class="green-gradient-btn" dark>
+              <v-btn v-if="$store.state.isAdmin" @click="actualizarProducto(producto)" class="green-gradient-btn" dark>
                 Guardar
               </v-btn>
             </div>
@@ -88,9 +88,9 @@ export default {
     }
   },
   methods: {
-    ...mapActions(["fetchProductos", "deleteProductos", "updateProductos", "addProductos"]),
-    addCarritos(producto) {
-      this.$store.commit("addCarritos", producto);
+    ...mapActions(["fetchProductos", "deleteProductos", "updateProductos", "addProductos", "processPaymentCarrito"]),
+    comprar(producto) {
+      this.$store.commit("processPaymentCarrito", producto);
       // Mostrar el desplegable automáticamente al agregar un producto al carrito
       this.showCarritosDialog = true;
     },
@@ -116,18 +116,20 @@ export default {
     },
     getImageUrl(id) {
       const imageUrls = {
-        1: require("../assets/taza.jpg"), 
-        2: require("../assets/camiseta.jpg"), 
-        1002: require("../assets/bufanda.jpg"), 
-        4: require("../assets/bufanda.jpg"), 
-        5: require("../assets/bufanda.jpg"), 
+        1: require("../assets/taza.jpg"),
+        2: require("../assets/camiseta.jpg"),
+        3: require("../assets/bufanda.jpg"),
+        4: require("../assets/bufanda.jpg"),
+        5: require("../assets/bufanda.jpg"),
         6: require("../assets/1.jpg")
       };
       return imageUrls[id];
     },
     enableEditing(producto) {
-      // Habilitar la edición en línea para el producto
-      this.$set(producto, 'editable', true);
+      if (this.$store.state.isAdmin) {
+        // Habilitar la edición en línea para el producto solo si es admin
+        this.$set(producto, 'editable', true);
+      }
     }
   },
   created() {
@@ -142,6 +144,8 @@ export default {
   height: 600px; /* Altura deseada del header */
   background-image: url('@/assets/5.jpg'); /* Ruta de la imagen */
   background-size: cover; /* Redimensiona la imagen para cubrir todo el contenedor sin deformarse */
+  margin-top: 100px;
+
 }
 .container-frame {
   background-color: rgba(255, 255, 255, 0.5);
@@ -151,6 +155,7 @@ export default {
   position: relative;
   z-index: 2;
   height: 400px;
+  margin-bottom: 100px;
 }
 
 .centered-card::before {

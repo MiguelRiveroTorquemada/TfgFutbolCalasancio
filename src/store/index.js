@@ -2,6 +2,7 @@ import Vue from 'vue';
 import Vuex from 'vuex';
 import router from '@/router'; // Ajusta la importación según la estructura de tu proyecto
 import CarnetSocio from '@/components/CarnetSocio.vue';
+import { loadStripe } from "@stripe/stripe-js";
 
 Vue.use(Vuex);
 
@@ -13,11 +14,25 @@ export default new Vuex.Store({
     Clientes: [],
     Jugadores:[],
     Partidos:[],
+    clienteLogueadoId: null,
+    isAdmin: false // Añadimos la propiedad isAdmin
+
   },
   getters: {
     // Define tus getters aquí si los necesitas
   },
   mutations: {
+
+   // mutations.js (o donde tengas tus mutaciones de Vuex)
+
+   setCarritosClientes(state, data) {
+    state.Carritos = data;
+  },
+  setClienteLogueado(state, { clienteId, isAdmin }) {
+    state.clienteLogueadoId = clienteId;
+    state.isAdmin = isAdmin; // Guardamos si es admin
+  },
+
     setProductos(state, payload) {
       state.Productos = payload;
     },
@@ -30,13 +45,19 @@ export default new Vuex.Store({
     setCarnetSocios(state, payload) {
       state.CarnetSocios = payload;
     },
-    addCarnetSocios(state, payload) {
+   /* addCarnetSocios(state, payload) {
       state.CarnetSocios.push(payload);
     },
+  
+    */
+   
     setCarritos(state, payload) {
       state.Carritos = payload;
     },
-    addCarritos(state, payload) {
+    /*addCarritos(state, payload) {
+      state.Carritos.push(payload);
+    },*/
+    processPaymentCarrito(state, payload) {
       state.Carritos.push(payload);
     },
     setClientes(state, payload) {
@@ -60,11 +81,178 @@ export default new Vuex.Store({
     setPartidos(state, payload) {
       state.Partidos = payload;
     },
+    addPartidos(state, partido) {
+      state.Partidos.push(partido);
+    },
     deleteProductos(state, id) {
       state.Productos = state.Productos.filter(producto => producto.id !== id);
     },
   },
+  
   actions: {
+// actions.js (o donde tengas tus acciones de Vuex)
+
+login({ commit, dispatch, state }, loginData) {
+  console.log('Iniciando sesión con:', loginData);
+  return dispatch('fetchClientes')
+    .then(() => {
+      console.log('Clientes en el estado:', state.Clientes);
+      const cliente = state.Clientes.find(cliente => cliente.email === loginData.email && cliente.password === loginData.password);
+      if (cliente) {
+        console.log('Cliente encontrado:', cliente);
+        commit('setClienteLogueado', { clienteId: cliente.id, isAdmin: cliente.isAdmin }); // Guarda el ID del cliente logueado y si es admin
+        return Promise.resolve();
+      } else {
+        console.warn('Credenciales inválidas');
+        throw new Error('Credenciales inválidas');
+      }
+    })
+    .catch(error => {
+      console.error('Error en login:', error);
+      if (error.message === 'Credenciales inválidas') {
+        return Promise.reject(error);
+      } else {
+        return Promise.reject(new Error('Error al cargar los datos de clientes'));
+      }
+    });
+},
+
+
+    processPayment({ commit }, paymentData) {
+      return new Promise(async (resolve, reject) => {
+        try {
+          // Carga la librería de Stripe
+          const stripe = await loadStripe(
+            "pk_test_51OKO1bLkVoGrpMmaK3Fe02eWUa8lekesqoimB8CZ4xXONuBe5cW7JVl39DjUifxLQyS26apczZQbcI7oZM6SiUCy00RJmnUj7G"
+          );
+    
+       
+    
+          // Realiza la solicitud al servidor con todos los datos del formulario
+          const response = await fetch(
+            "https://localhost:7123/CarnetSocio/CreateStripeSession",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                ...paymentData,
+                StripeSessionId: "", // Deja esto vacío por ahora
+                StripeCustomerId: "",
+              }),
+            }
+          );
+    
+          // Verifica si la respuesta del servidor fue exitosa (código de estado 200)
+          if (response.ok) {
+            const responseData = await response.json();
+            console.log("Respuesta del servidor:", responseData);
+    
+            // Suponiendo que la respuesta contiene una propiedad 'sessionId'
+            if (responseData && responseData.sessionId) {
+              // Redirige al usuario a la página de pago de Stripe
+              const { error } = await stripe.redirectToCheckout({
+                sessionId: responseData.sessionId,
+              });
+    
+              if (error) {
+                console.error("Error al redirigir a Checkout:", error);
+                return reject(error);
+              } else {
+                console.log("Redirigido a Checkout exitosamente");
+                // Redirige al usuario a la página de éxito de tu elección
+                window.location.href = "http://localhost:8080/#/";
+                resolve(); // Resuelve la promesa para indicar que el pago se procesó correctamente
+              }
+            }
+          } else {
+            console.error("Error al procesar la solicitud:", response.status, response.statusText);
+            reject(new Error("Error al procesar la solicitud"));
+          }
+        } catch (error) {
+          console.error("Error al procesar el pago:", error);
+          reject(error);
+        }
+      });
+    },    
+processPaymentCarrito({ commit }, { productoIds, email, password }) {
+  return new Promise((resolve, reject) => {
+    // Verificar credenciales del usuario
+    this.dispatch('verificarCredenciales', { email, password })
+      .then(isCredentialsValid => {
+        if (!isCredentialsValid) {
+          throw new Error('Credenciales inválidas');
+        }
+
+        // Cargar la librería de Stripe
+        return loadStripe(
+          "pk_test_51OKO1bLkVoGrpMmaK3Fe02eWUa8lekesqoimB8CZ4xXONuBe5cW7JVl39DjUifxLQyS26apczZQbcI7oZM6SiUCy00RJmnUj7G"
+        );
+      })
+      .then(stripe => {
+        // Realiza la solicitud al servidor con todos los datos del carrito
+        return fetch(
+          `https://localhost:7123/Carrito/CreateStripeSession?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(productoIds), // Aquí asumo que productoIds es un array de IDs
+          }
+        );
+      })
+      .then(response => {
+        // Verifica si la respuesta del servidor fue exitosa (código de estado 200)
+        if (response.ok) {
+          return response.json();
+        } else {
+          console.error("Error al procesar la solicitud:", response.status, response.statusText);
+          reject(new Error("Error al procesar la solicitud"));
+        }
+      })
+      .then(responseData => {
+        console.log("Respuesta del servidor:", responseData);
+
+        // Suponiendo que la respuesta contiene una propiedad 'sessionId'
+        if (responseData && responseData.sessionId) {
+          // Redirige al usuario a la página de pago de Stripe
+          return stripe.redirectToCheckout({
+            sessionId: responseData.sessionId,
+          });
+        }
+      })
+      .then(({ error }) => {
+        if (error) {
+          console.error("Error al redirigir a Checkout:", error);
+          reject(error);
+        } else {
+          console.log("Redirigido a Checkout exitosamente");
+          // Redirige al usuario a la página de éxito de tu elección
+          window.location.href = "http://localhost:8080/#/";
+          resolve(); // Resuelve la promesa para indicar que el pago se procesó correctamente
+        }
+      })
+      .catch(error => {
+        console.error("Error al procesar el pago:", error);
+        reject(error);
+      });
+  });
+},
+
+verificarCredenciales({ state }, { email, password }) {
+  console.log('Verificando credenciales:', email, password);
+  console.log('Clientes actuales:', state.Clientes);
+  const cliente = state.Clientes.find(cliente => cliente.email === email && cliente.password === password);
+  console.log('Cliente encontrado:', cliente);
+  
+  if (cliente) {
+    return Promise.resolve(true); // Las credenciales son válidas
+  } else {
+    return Promise.reject(new Error('Credenciales inválidas')); // Las credenciales son inválidas
+  }
+},
 
     fetchProductos({ commit }) {
       console.log('Fetching Productos...');
@@ -194,7 +382,7 @@ export default new Vuex.Store({
         });
     },
     
-    addCarnetSocios({ commit }, carnetSocioAñadidos) {
+   /* addCarnetSocios({ commit }, carnetSocioAñadidos) {
       fetch('https://localhost:7123/CarnetSocio', {
         method: 'POST',
         headers: {
@@ -215,7 +403,7 @@ export default new Vuex.Store({
         .catch(error => {
           console.error('Error al agregar el carnet de socio:', error);
         });
-    },
+    },*/
     fetchCarritos({ commit }) {
       console.log('Fetching Carrito...');
       fetch('https://localhost:7123/Carrito')
@@ -227,17 +415,34 @@ export default new Vuex.Store({
     },
     fetchClientes({ commit }) {
       console.log('Fetching Clientes...');
-      fetch('https://localhost:7123/Cliente')
-        .then(result => result.json())
+      return fetch(`https://localhost:7123/Cliente`)
+        .then(result => {
+          if (!result.ok) {
+            throw new Error('Error fetching clientes');
+          }
+          return result.json();
+        })
         .then(data => {
           console.log('Clientes fetched:', data);
-          commit('setClientes', data);
+          commit('setClientes', data); // Asume que la API devuelve una lista de clientes
         })
         .catch(error => {
           console.error('Error fetching Clientes:', error);
         });
     },
-
+    fetchClientesId({ commit }, clienteId) {
+      console.log('Fetching Carritos...');
+      fetch(`https://localhost:7123/Carrito/ByClienteId/${clienteId}`)
+        .then(result => result.json())
+        .then(data => {
+          console.log('Carritos fetched:', data);
+          commit('setCarritos', data);
+        })
+        .catch(error => {
+          console.error('Error fetching Carritos:', error);
+        });
+    },
+    
     updateCarnetSocio({ commit }, CarnetSocio) {
       fetch(`https://localhost:7123/CarnetSocio/${CarnetSocio.id}`, {
         method: 'PUT',
@@ -295,6 +500,7 @@ export default new Vuex.Store({
     
     
     },
+    /*
     addCarritos({ commit }, { productoIds, email, password  }) {
       console.log('Agregando carrito con productos:', productoIds);
       return fetch(`https://localhost:7123/Carrito?email=${email}&password=${password}`, {
@@ -327,24 +533,29 @@ export default new Vuex.Store({
       console.log('Cliente encontrado:', cliente);
       return Promise.resolve(!!cliente);
     },
+    */
     
     addClientes({ commit }, clienteAñadido) {
-      fetch('https://localhost:7123/Cliente', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(clienteAñadido),
-      }).then(response => {
-        if (response.ok) {
-          return response.json();
-        }
-        throw new Error('Error al procesar la solicitud.');
-      }).then(data => {
-        commit('addClientes', data);
-      })
-      .catch(error => {
-        console.error('Error al agregar el cliente:', error);
+      return new Promise((resolve, reject) => {
+        fetch('https://localhost:7123/Cliente', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(clienteAñadido),
+        }).then(response => {
+          if (response.ok) {
+            return response.json();
+          }
+          throw new Error('Ya estas registrado con este correo');
+        }).then(data => {
+          commit('addClientes', data);
+          resolve(data); // Resolver la promesa con los datos agregados
+        })
+        .catch(error => {
+          console.error('Ya estas registrado con este correo:', error);
+          reject(error); // Rechazar la promesa con el error
+        });
       });
     },
     addProductos({ commit }, productoAñadido) {
@@ -364,6 +575,25 @@ export default new Vuex.Store({
       })
       .catch(error => {
         console.error('Error al agregar el producto:', error);
+      });
+    },
+    addPartidos({ commit }, partidoAñadido) {
+      fetch('https://localhost:7123/Partidos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(partidoAñadido),
+      }).then(response => {
+        if (response.ok) {
+          return response.json();
+        }
+        throw new Error('Error al procesar la solicitud.');
+      }).then(data => {
+        commit('addPartidos', data);
+      })
+      .catch(error => {
+        console.error('Error al agregar el partido:', error);
       });
     },
     fetchJugadores({ commit }) {

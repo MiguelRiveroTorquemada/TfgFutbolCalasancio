@@ -1,38 +1,56 @@
 <template>
   <div> 
     <v-row justify="center">
-      <v-btn @click="showAddJugadorDialog = true" class="add-jugador-btn" dark>
+      
+      <v-btn v-if="$store.state.isAdmin"  @click="showAddJugadorDialog = true" class="add-jugador-btn" dark>
         <i class="material-icons">add</i>
       </v-btn>
     </v-row>
-  
+ 
     <div class="jugadores-container">
       
-     
+      <div class="presentacion-container">
+  <div class="imagen-lateral">
+    <img src="../assets/1.jpg" alt="Equipo Calasancio">
+  </div>
+  <div class="texto">
+    <h1>Presentación del Equipo Regional Calasancio</h1>
+    <p>
+      <strong>El equipo regional Calasancio está experimentando un emocionante ascenso en su trayectoria.</strong> Fundado sobre los cimientos de la pasión por el fútbol y el compromiso con la excelencia, el equipo se ha destacado en cada encuentro con su dedicación y habilidades excepcionales.
+    </p>
+    <p>
+      En este espacio, te damos la bienvenida a explorar y conocer a fondo a cada uno de nuestros jugadores. Desde sus habilidades técnicas hasta sus estadísticas de juego, aquí encontrarás una visión completa de la capacidad y el potencial de cada integrante del equipo.
+    </p>
+    <p>
+      Acompáñanos en este emocionante viaje a través del mundo del fútbol, donde cada partido es una oportunidad para demostrar nuestro compromiso con el deporte y el espíritu competitivo.
+    </p>
+  </div>
+</div>
+
       <div class="card-container" v-if="Jugadores.length">
         
         <div class="card" v-for="jugador in Jugadores" :key="jugador.id">
           <div class="card-header">
             <h2>
-              <input v-model="jugador.nombre" />
-              <input v-model="jugador.apellidos" />
+              <input v-model="jugador.nombre" :disabled="!$store.state.isAdmin" />
+              <input v-model="jugador.apellidos" :disabled="!$store.state.isAdmin" />
             </h2>
-            <input v-model="jugador.posicion" />
+            <input v-model="jugador.posicion" :disabled="!$store.state.isAdmin" />
           </div>
           <div class="card-body">
             <div class="image-container">
               <img :src="require(`../assets/assets/${jugador.numeroCamiseta}.jpeg`)" alt="Foto del jugador">
             </div>
-            <p><strong>Altura:</strong> <input v-model="jugador.altura" /> m</p>
-            <p><strong>Pie:</strong> <input v-model="jugador.pie" /></p>
-            <p><strong>Número de Camiseta:</strong> <input v-model="jugador.numeroCamiseta" /></p>
-            <p><strong>Partidos Jugados:</strong> <input type="checkbox" v-model="jugador.partidosJugados" /></p>
-            <p><strong>Goles:</strong> <input v-model="jugador.goles" /></p>
-            <p><strong>Goles por Partido:</strong> <input v-model="jugador.golesPorPartido" /></p>
+            <p><strong>Altura:</strong> <input v-model="jugador.altura" :disabled="!$store.state.isAdmin" /> m</p>
+            <p><strong>Pie:</strong> <input v-model="jugador.pie" :disabled="!$store.state.isAdmin" /></p>
+            <p><strong>Número de Camiseta:</strong> <input v-model="jugador.numeroCamiseta" :disabled="!$store.state.isAdmin" /></p>
+           <!-- <p><strong>Partidos Jugados:</strong> <input type="checkbox" v-model="jugador.partidosJugados" :disabled="!$store.state.isAdmin" /></p>-->
+            <p><strong>Goles:</strong> <input v-model="jugador.goles" :disabled="!$store.state.isAdmin" /></p>
+            <p><strong>Goles por Partido:</strong> <input v-model="jugador.golesPorPartido" :disabled="!$store.state.isAdmin" /></p>
             
             <!-- Botón para actualizar -->
-            <button @click="actualizarJugador(jugador)" class="update-button">Actualizar</button>
-            <button @click="eliminarJugador(jugador.numeroCamiseta)" class="delete-button">
+            <button  v-if="$store.state.isAdmin" @click="actualizarJugador(jugador)" class="update-button">Actualizar</button>
+            <button   v-if="$store.state.isAdmin" @click="eliminarJugador(jugador.numeroCamiseta)" class="delete-button">
               <i class="material-icons">clear</i>
             </button>
           </div>
@@ -45,6 +63,7 @@
     </div>
   </div>
 </template>
+
 
 
 <script>
@@ -116,7 +135,7 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 20px;
+  margin-top: 200px;
 }
 
 h1 {
@@ -126,12 +145,39 @@ h1 {
   font-size: 24px;
   text-align: center;
 }
+.presentacion-container {
+  display: flex;
+  align-items: center;
+  border: 2px solid #ccc; /* Marco alrededor del contenedor */
+  padding: 20px;
+  margin-left: 30px;
+  margin-right:30px ;
+  margin-bottom: 50px;
+}
+
+.imagen-lateral img {
+  width: 600px; /* Tamaño de la imagen */
+  margin-right: 20px; /* Espacio entre la imagen y el texto */
+}
+
+.texto {
+  flex: 1; /* El texto ocupa todo el espacio restante */
+}
+
+.texto h1 {
+  font-size: 28px;
+}
+
+.texto p {
+  font-size: 18px;
+}
 
 .card-container {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 20px;
+  margin-bottom: 40px;
 }
 
 .card {
@@ -208,6 +254,8 @@ h1 {
 
 .add-jugador-btn {
   background: linear-gradient(to right, #ffff00, #ffd700); /* Degradado de amarillo */
+  margin-top: 250px;
+  margin-bottom: -150px;
 }
 
 .update-button {

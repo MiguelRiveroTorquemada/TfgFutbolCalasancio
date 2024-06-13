@@ -1,7 +1,16 @@
 <template>
   <div class="container-frame">
-    <h1>Partidos</h1>
+    <button class="add-partido-button" v-if="$store.state.isAdmin" @click="openAddPartidoDialog">Agregar Partido</button>
+
     <div class="tabla-container">
+  <div>
+    <h1>Partidos</h1>
+    <div class="filter-container">
+      <label for="fechaFilter" class="filter-label">Filtrar por Fecha:</label>
+      <input type="date" id="fechaFilter" v-model="fechaFiltro" @input="filterByDate" class="filter-input">
+    </div>
+  </div>
+
       <div class="table-wrapper">
         <table v-if="Partidos.length">
           <thead>
@@ -13,22 +22,22 @@
               <th>Ganado</th>
               <th>Fecha</th>
               <th>Jugadores</th>
-              <th>Acciones</th>
+              <th v-if="$store.state.isAdmin">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="partido in Partidos" :key="partido.id">
-              <td contenteditable="true" @input="updateField(partido.id, 'nombrePartido', $event.target.innerText)">{{ partido.nombrePartido }}</td>
-              <td contenteditable="true" @input="updateField(partido.id, 'primerEquipo', $event.target.innerText)">{{ partido.primerEquipo }}</td>
-              <td contenteditable="true" @input="updateField(partido.id, 'segundoEquipo', $event.target.innerText)">{{ partido.segundoEquipo }}</td>
-              <td contenteditable="true" @input="updateField(partido.id, 'puntuacion', parseInt($event.target.innerText))">{{ partido.puntuacion }}</td>
+            <tr v-for="partido in filteredPartidos" :key="partido.id">
+              <td :contenteditable="$store.state.isAdmin" @blur="updateField(partido.id, 'nombrePartido', $event.target.innerText)">{{ partido.nombrePartido }}</td>
+              <td :contenteditable="$store.state.isAdmin" @blur="updateField(partido.id, 'primerEquipo', $event.target.innerText)">{{ partido.primerEquipo }}</td>
+              <td :contenteditable="$store.state.isAdmin" @blur="updateField(partido.id, 'segundoEquipo', $event.target.innerText)">{{ partido.segundoEquipo }}</td>
+              <td :contenteditable="$store.state.isAdmin" @blur="updateField(partido.id, 'puntuacion', $event.target.innerText)">{{ partido.puntuacion }}</td>
               <td>
-                <select @change="updateField(partido.id, 'ganado', $event.target.value === 'Sí')" :value="partido.ganado ? 'Sí' : 'No'">
+                <select :disabled="!$store.state.isAdmin" @change="updateField(partido.id, 'ganado', $event.target.value === 'Sí')" :value="partido.ganado ? 'Sí' : 'No'" class="select-field">
                   <option value="Sí">Sí</option>
                   <option value="No">No</option>
                 </select>
               </td>
-              <td>{{ new Date(partido.fecha).toLocaleDateString() }}</td>
+              <td :contenteditable="$store.state.isAdmin" @blur="updateField(partido.id, 'fecha', new Date($event.target.innerText).toISOString())">{{ new Date(partido.fecha).toLocaleDateString() }}</td>
               <td>
                 <details>
                   <summary>Ver jugadores</summary>
@@ -42,7 +51,6 @@
                         <th>Número de Camiseta</th>
                         <th>Partidos Jugados</th>
                         <th>Goles</th>
-                       <!-- <th>Goles por Partido</th>-->
                       </tr>
                     </thead>
                     <tbody>
@@ -54,14 +62,13 @@
                         <td>{{ jugador.numeroCamiseta }}</td>
                         <td>{{ jugador.partidosJugados ? 'Sí' : 'No' }}</td>
                         <td>{{ jugador.goles }}</td>
-                        <!--<td>{{ jugador.golesPorPartido }}</td>-->
                       </tr>
                     </tbody>
                   </table>
                 </details>
               </td>
               <td>
-                <button @click="openDialog(partido.id)">Agregar Jugador</button>
+                <button v-if="$store.state.isAdmin" @click="openDialog(partido.id)">Agregar Jugador</button>
               </td>
             </tr>
           </tbody>
@@ -69,35 +76,56 @@
         <p v-else>Cargando partidos...</p>
       </div>
     </div>
-    <dialog ref="dialog">
+
+    <!-- Diálogos para actualizar y agregar partidos -->
+    <dialog ref="updateDialog">
       <update-partidos :partido-id="currentPartidoId" @close="closeDialog"/>
       <button @click="closeDialog" class="close-button"><i class="fas fa-times"></i></button>
+    </dialog>
+    <dialog ref="addDialog">
+      <add-partidos @addPartidos="addNewPartido" @close="closeAddDialog"/>
+      <button @click="closeAddDialog" class="close-button"><i class="fas fa-times"></i></button>
     </dialog>
   </div>
 </template>
 
 <script>
 import { mapState, mapActions } from 'vuex';
-import UpdatePartidos from './UpdatePartidos.vue'; // Asegúrate de tener este componente
+import UpdatePartidos from './UpdatePartidos.vue';
+import AddPartidos from './AddPartidos.vue';
 
 export default {
   name: 'Partidos',
   components: {
     UpdatePartidos,
+    AddPartidos,
   },
   data() {
     return {
       currentPartidoId: null,
+      fechaFiltro: '', // Propiedad para almacenar la fecha seleccionada para filtrar
     };
   },
   computed: {
     ...mapState(['Partidos']),
+    // Filtra los partidos según la fecha seleccionada
+    filteredPartidos() {
+      if (!this.fechaFiltro) {
+        return this.Partidos;
+      } else {
+        return this.Partidos.filter(partido => {
+          // Convierte la fecha del partido a formato yyyy-mm-dd para comparar
+          const partidoDate = new Date(partido.fecha).toISOString().slice(0, 10);
+          return partidoDate === this.fechaFiltro;
+        });
+      }
+    },
   },
   created() {
     this.fetchPartidos();
   },
   methods: {
-    ...mapActions(['fetchPartidos', 'updatePartidoOnly', 'updateJugadores']),
+    ...mapActions(['fetchPartidos', 'updatePartidoOnly', 'addPartidos']),
     updateField(id, field, value) {
       const partido = this.Partidos.find(p => p.id === id);
       partido[field] = value;
@@ -105,12 +133,27 @@ export default {
     },
     openDialog(partidoId) {
       this.currentPartidoId = partidoId;
-      this.$refs.dialog.showModal();
+      this.$refs.updateDialog.showModal();
     },
     closeDialog() {
-      this.$refs.dialog.close();
+      this.$refs.updateDialog.close();
       this.currentPartidoId = null;
-      this.fetchPartidos(); // Actualizar los datos automáticamente al cerrar el diálogo
+      this.fetchPartidos();
+    },
+    openAddPartidoDialog() {
+      this.$refs.addDialog.showModal();
+    },
+    closeAddDialog() {
+      this.$refs.addDialog.close();
+    },
+    addNewPartido(partido) {
+      this.addPartidos(partido);
+      this.closeAddDialog();
+      this.fetchPartidos();
+    },
+    filterByDate() {
+      // Este método se activa cuando cambia la fecha en el filtro
+      // La lista de partidos filtrados se actualiza automáticamente
     },
   },
 };
@@ -122,21 +165,57 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh; /* Asegura que el fondo cubra toda la pantalla */
+  min-height: 100vh;
   padding: 20px;
   box-sizing: border-box;
-  background: linear-gradient(to bottom, rgb(243, 255, 140), white); /* Degradado de amarillo a blanco */
+  background: linear-gradient(to bottom, rgb(243, 255, 140), white);
+  margin-top: 100px;
 }
 
 .tabla-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center; /* Centrar el contenido horizontalmente */
+  justify-content: center;
   width: 100%;
   max-width: 800px;
-  margin: 0 auto; /* Centrar el contenedor en la página */
+  margin: 0 auto;
+  margin-top: 50px;
+  margin-bottom: 80px;
 }
+
+.tabla-header {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px; /* Ajuste del margen entre el h1 y el filtro */
+}
+
+.filter-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 70px;
+  width: 100%;
+}
+
+.filter-label {
+  margin-right: 10px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.filter-input {
+  padding: 10px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 200px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 .close-button {
   position: absolute;
   top: 10px;
@@ -148,36 +227,51 @@ export default {
 }
 
 .close-button:hover {
-  color: red; /* Cambiar el color del icono al pasar el ratón sobre él */
+  color: red;
 }
-
 
 .table-wrapper {
   position: relative;
-  z-index: 2; /* Asegura que el contenido esté por encima del degradado */
+  z-index: 2;
   background-color: rgba(255, 255, 255, 0.5);
   border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1); /* Sombra difuminada */
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
 }
 
 .table-wrapper::before {
   content: '';
   position: absolute;
-  top: -20px; /* Ajusta el desplazamiento vertical */
-  left: -20px; /* Ajusta el desplazamiento horizontal */
-  right: -20px; /* Ajusta el desplazamiento horizontal */
-  bottom: -20px; /* Ajusta el desplazamiento vertical */
+  top: -20px;
+  left: -20px;
+  right: -20px;
+  bottom: -20px;
   border-radius: inherit;
-  box-shadow: 0 0 40px rgba(0, 0, 255, 0.75); /* Ajusta el difuminado y la intensidad del color */
-  z-index: -1; /* Asegura que el degradado exterior esté detrás del contenido */
+  box-shadow: 0 0 40px rgba(0, 0, 255, 0.75);
+  z-index: -1;
+}
+
+.add-partido-button {
+  background-color: #007bff;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 100px;
+  margin-bottom: 10px;
+}
+
+.add-partido-button:hover {
+  background-color: #0056b3;
 }
 
 h1 {
   font-family: Arial, sans-serif;
-  margin-bottom: 90px; /* Aumenta el margen inferior */
+  margin-bottom: 20px; /* Ajuste del margen inferior del h1 */
+  margin-top: 40px;
   color: #333;
-  text-align: center; /* Centrar el texto del título */
+  text-align: center;
 }
 
 table {

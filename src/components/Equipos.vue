@@ -122,6 +122,8 @@
 .custom-card {
   margin: 0 20px; /* Margen de 20px a cada lado */
   overflow: hidden; /* Para que la imagen no se salga de los límites de la tarjeta */
+  margin-top: 100px;
+
 }
 
 /* Contenedor de la imagen */

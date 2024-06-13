@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="container">
+  <v-container  fluid class="container">
     <v-row>
       <!-- Columna izquierda para el texto y la imagen -->
       <v-col cols="12" md="6">
@@ -80,8 +80,12 @@
             </template>
           </v-text-field>
 
-          <v-btn type="submit" class="custom-btn" dark>Comprar</v-btn>
-          <!--  <v-btn type="reset" color="error" variant="danger">Reset</v-btn>-->
+        <!--<v-btn type="submit" class="custom-btn" dark>Comprar</v-btn>--> 
+         
+            <!--<v-btn type="submit" color="primary">Enviar Notificación</v-btn>-->
+            <v-btn type="submit" color="custom-btn">Comprar</v-btn>
+
+          <!--<v-btn type="reset" color="error" variant="danger">Reset</v-btn>-->
         </v-form>
       </v-col>
     </v-row>
@@ -90,6 +94,7 @@
 
 <script>
 import { mapActions, mapState } from "vuex";
+import { loadStripe } from "@stripe/stripe-js";
 
 export default {
   data: () => ({
@@ -126,27 +131,37 @@ export default {
     }
   },
   methods: {
-    ...mapActions(["fetchCarnetSocios", "addCarnetSocios"]),
+    ...mapActions(["fetchCarnetSocios", "processPayment"]),
     onSubmit() {
-      const nuevoSocio = { cliente: { ...this.nuevoCliente }, precio: this.nuevoCliente.precio }; // Añade el precio fijo
-      this.addCarnetSocios(nuevoSocio).then(() => {
-        this.nuevoCliente = { nombre: "", apellidos: "", email: "", dni: "", direccion: "", password: "", precio: 20 }; // Resetea el precio también
-        this.fetchCarnetSocios(); // Refresca la lista después de añadir
-      });
-    },
+  console.log(this.nuevoCliente); // Agregar este log para verificar los valores del cliente antes de enviarlos
+  const nuevoSocio = { cliente: { ...this.nuevoCliente }, precio: this.nuevoCliente.precio }; // Añade el precio fijo
+  this.processPayment(nuevoSocio)
+    .then(() => {
+      this.nuevoCliente = { nombre: "", apellidos: "", email: "", dni: "", direccion: "", password: "", precio: 20 }; // Resetea el precio también
+      this.fetchCarnetSocios(); // Refresca la lista después de añadir
+    })
+    .catch(error => {
+      console.error("Error al procesar el pago:", error);
+    });
+},
+
     onReset() {
       this.nuevoCliente = { nombre: "", apellidos: "", email: "", dni: "", direccion: "", password: "", precio: 20 }; // Resetea el precio también
     }
   },
   created() {
     this.fetchCarnetSocios();
-  }
+  },
+  
+
+
+  
 };
 </script>
 
 <style scoped>
 .container {
-  /* Estilos del contenedor */
+  margin-top: 220px;
 }
 
 /* Estilo para el contenedor del texto superior */
@@ -166,6 +181,7 @@ export default {
   margin-right: 20px; /* Espacio a la derecha de la imagen */
   margin-left: 5%;
   transition: transform 0.3s ease-in-out; /* Transición suave para el zoom */
+  
 }
 .image-container img {
   width: 100%; /* Ancho completo */

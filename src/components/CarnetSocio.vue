@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid>
+  <v-container  v-if="$store.state.isAdmin" fluid>
     <v-row justify="center">
       <v-col cols="12">
         <v-card class="custom-card">

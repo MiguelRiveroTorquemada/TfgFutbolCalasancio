@@ -2,7 +2,6 @@
 <template>
     <div>
       <ListCarritos></ListCarritos>
-     
     </div>
   </template>
     
@@ -15,16 +14,6 @@
         ListCarritos,
     },
   
-    /*     created() {
-          this.cargarDatos();
-      },
-  
-      data() {
-          return {
-              Items: []
-          }
-      },
-       */
       
   };
   </script>
